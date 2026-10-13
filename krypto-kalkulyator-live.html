@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Крипто-калькулятор інвестицій</title>
+<style>
+  :root {
+    --bg: #fff; --fg: #111; --mute: #666; --line: #ddd; --soft: #eee;
+    --field: #fff; --bad: #d33; --bad-bg: #fdecec; --accent: #2f6fed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a; --fg: #eceef2; --mute: #9aa0ab; --line: #2e323a; --soft: #262a31;
+      --field: #1c1f25; --bad: #ff6b6b; --bad-bg: #3a1d1f; --accent: #6b9bff;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161a; --fg: #eceef2; --mute: #9aa0ab; --line: #2e323a; --soft: #262a31;
+    --field: #1c1f25; --bad: #ff6b6b; --bad-bg: #3a1d1f; --accent: #6b9bff;
+  }
+  :root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; margin: 0 auto; padding: 16px; max-width: 760px; color: var(--fg); background: var(--bg); }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .settings { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: var(--mute); }
+  .amt-input { width: 140px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 16px; background: var(--field); }
+  .small-input { width: 96px; }
+  .sum-chip { font-size: 12px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); color: var(--mute); margin-left: auto; align-self: flex-end; }
+  .sum-chip.bad { color: var(--bad); border-color: var(--bad); background: var(--bad-bg); }
+
+  .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 12px; background: var(--soft); }
+  .bar div { height: 100%; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .tool-btn { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); cursor: pointer; font-size: 14px; }
+  .tool-btn:hover:not(:disabled) { border-color: var(--mute); }
+  .tool-btn:disabled { opacity: .4; cursor: default; }
+  .tool-btn.armed { border-color: var(--bad); color: var(--bad); }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; font-weight: 500; color: var(--mute); padding: 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 6px; border-bottom: 1px solid var(--soft); vertical-align: middle; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cell-in { width: 100%; min-width: 56px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 16px; background: var(--field); }
+  .cell-in.num-in { text-align: right; }
+  .coin-in { min-width: 64px; font-weight: 600; }
+  .prio { display: inline-flex; flex-direction: column; vertical-align: middle; margin-right: 4px; }
+  .prio button { border: none; background: none; padding: 1px 6px; cursor: pointer; color: var(--mute); line-height: 1.2; font-size: 12px; }
+  .prio button:disabled { opacity: .25; cursor: default; }
+  .prio-num { display: inline-block; min-width: 16px; text-align: center; font-size: 12px; color: var(--mute); }
+  .del-btn { border: none; background: none; cursor: pointer; color: var(--mute); font-size: 20px; line-height: 1; padding: 6px 10px; border-radius: 6px; }
+  .del-btn:hover { color: var(--bad); background: var(--bad-bg); }
+  .empty { padding: 20px 6px; color: var(--mute); text-align: center; }
+
+  .no-dca .c-per { display: none; }
+
+  .add-btn { margin-top: 12px; padding: 12px 18px; border: 1px dashed var(--line); border-radius: 10px; background: var(--bg); cursor: pointer; font-size: 15px; width: 100%; }
+  .add-btn:hover { border-color: var(--mute); }
+
+  .summary { display: grid; gap: 6px; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+  .summary div { display: flex; justify-content: space-between; gap: 12px; }
+  .summary dt, .summary .k { color: var(--mute); }
+  .summary .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .summary .warn .v, .summary .warn .k { color: var(--bad); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 12px; font-size: 12px; color: var(--mute); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .hint { font-size: 12px; color: var(--mute); margin-top: 12px; line-height: 1.55; }
+  .status { font-size: 12px; color: var(--mute); min-height: 16px; margin-top: 6px; }
+
+  .stamp { font-size: 12px; color: var(--mute); margin: -4px 0 10px; min-height: 16px; }
+  .stamp.bad { color: var(--bad); }
+  .src { display: block; font-size: 11px; color: var(--mute); text-align: right; margin-top: 2px; min-height: 13px; }
+  .src.ok { color: #30a46c; }
+  .src.bad { color: var(--bad); }
+
+  /* Телефон: кожна монета — окрема картка */
+  @media (max-width: 640px) {
+    body { padding: 12px; }
+    .sum-chip { margin-left: 0; }
+    .table-wrap { overflow: visible; }
+    .grid-table thead { display: none; }
+    .grid-table, .grid-table tbody { display: block; }
+    .grid-table tr { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px 10px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 12px; align-items: end; }
+    .grid-table td { display: block; padding: 0; border: 0; }
+    .grid-table td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; color: var(--mute); margin-bottom: 3px; }
+    .grid-table td.num { text-align: left; font-size: 15px; }
+    .c-prio { grid-column: span 2; display: flex !important; align-items: center; gap: 6px; }
+    .c-prio .prio { flex-direction: row; margin: 0; }
+    .c-prio .prio button { padding: 8px 10px; font-size: 14px; }
+    .c-name { grid-column: span 3; }
+    .c-del { grid-column: 6; grid-row: 1; text-align: right; }
+    .c-price, .c-share { grid-column: span 3; }
+    .c-usd, .c-qty { grid-column: span 3; }
+    .c-per { grid-column: span 6; }
+    .del-btn { padding: 8px 12px; }
+    .src { text-align: left; }
+    .grid-table .empty-row { display: block; border: 0; padding: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="settings">
+    <div class="field">
+      <label for="amount">Сума інвестиції, $</label>
+      <input class="amt-input" id="amount" type="number" inputmode="decimal" min="0" step="50">
+    </div>
+    <div class="field">
+      <label for="fee">Комісія біржі, %</label>
+      <input class="amt-input small-input" id="fee" type="number" inputmode="decimal" min="0" max="100" step="0.01">
+    </div>
+    <div class="field">
+      <label for="parts">Покупок (DCA)</label>
+      <input class="amt-input small-input" id="parts" type="number" inputmode="numeric" min="1" max="365" step="1">
+    </div>
+    <span class="sum-chip" id="sumChip" role="status">Σ 100%</span>
+  </div>
+
+  <div class="bar" id="bar" aria-hidden="true"></div>
+
+  <div class="toolbar">
+    <button class="tool-btn" id="priceBtn" type="button">Оновити ціни</button>
+    <button class="tool-btn" id="equalBtn" type="button">Розподілити порівну</button>
+    <button class="tool-btn" id="normBtn" type="button">Вирівняти до 100%</button>
+    <button class="tool-btn" id="copyBtn" type="button">Скопіювати результат</button>
+    <button class="tool-btn" id="resetBtn" type="button">Скинути</button>
+  </div>
+
+  <div class="stamp" id="stamp" role="status"></div>
+
+  <div class="table-wrap">
+    <table class="grid-table no-dca" id="tbl">
+      <thead>
+        <tr>
+          <th>Порядок</th>
+          <th>Монета</th>
+          <th class="num">Ціна, $</th>
+          <th class="num">Частка, %</th>
+          <th class="num">Сума, $</th>
+          <th class="num">Кількість</th>
+          <th class="num c-per">За 1 покупку</th>
+          <th style="width:28px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <button class="add-btn" id="addBtn" type="button">+ Додати монету</button>
+
+  <div class="summary" id="summary"></div>
+  <div class="legend" id="legend"></div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+  <div class="hint">Ціни підтягуються з Coinbase при відкритті й коли повертаєшся на сторінку. Назва монети має збігатись із тікером (BTC, ETH). Ціну можна змінити вручну. Стрілки ▲▼ задають порядок монет у списку покупок. Кількість рахується після віднімання комісії. Якщо покупок більше однієї, видно суму й кількість на кожну. Дані зберігаються в браузері.</div>
+
+<script>
+  const COLORS = ['#2f6fed', '#e5484d', '#30a46c', '#8e4ec6', '#8b8d98', '#e08a1e', '#12a5b3'];
+  const DEFAULT_COINS = [
+    { name: 'BTC', price: 64000, share: 40 },
+    { name: 'ETH', price: 3400, share: 30 },
+    { name: 'SOL', price: 150, share: 15 },
+    { name: 'LINK', price: 14, share: 10 },
+    { name: 'DOT', price: 6.5, share: 5 }
+  ];
+  const DEFAULT_SETTINGS = { amount: 1000, fee: 0, parts: 1 };
+
+  const $ = id => document.getElementById(id);
+  const num = v => { const x = parseFloat(v); return Number.isFinite(x) && x > 0 ? x : 0; };
+  const r2 = v => Math.round(v * 100) / 100;
+  const fmt = v => v.toLocaleString('uk-UA', { maximumFractionDigits: 2 });
+  const fmtQ = v => v >= 1000 ? v.toLocaleString('uk-UA', { maximumFractionDigits: 2 }) : v >= 1 ? v.toFixed(4) : v.toFixed(6);
+
+  const read = (key, fallback) => { try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; } catch (e) { return fallback; } };
+  const write = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} };
+
+  const clean = c => ({ name: String(c.name == null ? '' : c.name).slice(0, 20), price: num(c.price), share: Math.min(100, num(c.share)) });
+  let saved = read('dcaCoins', null);
+  let coins = (Array.isArray(saved) ? saved : DEFAULT_COINS).map(clean);
+  let settings = Object.assign({}, DEFAULT_SETTINGS, read('dcaSettings', {}));
+
+  const symOf = c => String(c.name || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const liveStatus = {}; // тікер -> 'ok' | 'fail'
+
+  // ---------- Розрахунок ----------
+  function calc() {
+    const amt = num(settings.amount);
+    const fee = Math.min(num(settings.fee), 100);
+    const parts = Math.max(1, Math.floor(num(settings.parts)) || 1);
+    const rows = coins.map(c => {
+      const usd = amt * c.share / 100;
+      const qty = c.price > 0 ? usd * (1 - fee / 100) / c.price : 0;
+      return { usd, qty };
+    });
+    const totalShare = r2(coins.reduce((s, c) => s + c.share, 0));
+    const usdSum = amt * totalShare / 100;
+    return { amt, fee, parts, rows, totalShare, usdSum, feeSum: usdSum * fee / 100 };
+  }
+
+  // ---------- Рядки таблиці (перебудовуємо лише при зміні структури) ----------
+  function buildRows() {
+    const tb = $('tbody');
+    tb.replaceChildren();
+    if (!coins.length) {
+      const tr = document.createElement('tr');
+      tr.className = 'empty-row';
+      tr.innerHTML = '<td class="empty" colspan="8">Поки немає монет. Натисни «Додати монету».</td>';
+      tb.appendChild(tr);
+      return;
+    }
+    coins.forEach((c, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="c-prio">
+          <span class="prio">
+            <button type="button" data-act="up" aria-label="Вище" ${i === 0 ? 'disabled' : ''}>▲</button>
+            <button type="button" data-act="down" aria-label="Нижче" ${i === coins.length - 1 ? 'disabled' : ''}>▼</button>
+          </span><span class="prio-num">${i + 1}</span>
+        </td>
+        <td class="c-name" data-label="Монета"><input class="cell-in coin-in" data-f="name" maxlength="20" autocomplete="off" aria-label="Назва монети"></td>
+        <td class="c-price" data-label="Ціна, $"><input class="cell-in num-in" data-f="price" type="number" inputmode="decimal" min="0" step="any" aria-label="Ціна"><small class="src"></small></td>
+        <td class="c-share" data-label="Частка, %"><input class="cell-in num-in" data-f="share" type="number" inputmode="decimal" min="0" max="100" step="any" aria-label="Частка"></td>
+        <td class="num c-usd" data-label="Сума, $"></td>
+        <td class="num c-qty" data-label="Кількість"></td>
+        <td class="num c-per" data-label="За 1 покупку"></td>
+        <td class="c-del"><button class="del-btn" type="button" data-act="del" aria-label="Видалити монету">×</button></td>`;
+      tr.dataset.i = i;
+      tr.querySelector('[data-f="name"]').value = c.name;
+      tr.querySelector('[data-f="price"]').value = c.price;
+      tr.querySelector('[data-f="share"]').value = c.share;
+      tb.appendChild(tr);
+    });
+  }
+
+  // ---------- Оновлення цифр (без перемальовування полів) ----------
+  function update() {
+    const k = calc();
+    $('tbl').classList.toggle('no-dca', k.parts === 1);
+
+    if (coins.length) {
+      [...$('tbody').children].forEach((tr, i) => {
+        const r = k.rows[i]; if (!r) return;
+        tr.querySelector('.c-usd').textContent = fmt(r.usd);
+        tr.querySelector('.c-qty').textContent = fmtQ(r.qty);
+        tr.querySelector('.c-per').textContent = '$' + fmt(r.usd / k.parts) + ' → ' + fmtQ(r.qty / k.parts);
+        const s = liveStatus[symOf(coins[i])];
+        const src = tr.querySelector('.src');
+        src.textContent = s === 'ok' ? 'жива ціна' : s === 'fail' ? 'не знайдено, вручну' : '';
+        src.className = 'src' + (s === 'ok' ? ' ok' : s === 'fail' ? ' bad' : '');
+      });
+    }
+
+    // Чип суми часток
+    const chip = $('sumChip');
+    const diff = r2(100 - k.totalShare);
+    chip.textContent = diff === 0 ? 'Σ 100%' : diff > 0 ? `Σ ${fmt(k.totalShare)}% · лишилось ${fmt(diff)}%` : `Σ ${fmt(k.totalShare)}% · перебір ${fmt(-diff)}%`;
+    chip.classList.toggle('bad', diff !== 0);
+
+    // Смуга й легенда
+    const bar = $('bar'); bar.replaceChildren();
+    const legend = $('legend'); legend.replaceChildren();
+    coins.forEach((c, i) => {
+      const color = COLORS[i % COLORS.length];
+      const seg = document.createElement('div');
+      seg.style.width = c.share + '%';
+      seg.style.background = color;
+      bar.appendChild(seg);
+      const item = document.createElement('span');
+      const dot = document.createElement('span');
+      dot.className = 'dot'; dot.style.background = color;
+      item.append(dot, `${c.name || '—'} · ${fmt(c.share)}%`);
+      legend.appendChild(item);
+    });
+
+    // Підсумок
+    const lines = [['Розподілено', '$' + fmt(k.usdSum)]];
+    if (k.fee > 0) {
+      lines.push(['Комісія', '$' + fmt(k.feeSum)]);
+      lines.push(['Піде на купівлю', '$' + fmt(k.usdSum - k.feeSum)]);
+    }
+    if (k.parts > 1) lines.push([`Одна покупка (× ${k.parts})`, '$' + fmt(k.usdSum / k.parts)]);
+    if (diff > 0) lines.push(['Не розподілено', '$' + fmt(k.amt * diff / 100), true]);
+    if (diff < 0) lines.push(['Перебір понад суму', '$' + fmt(k.amt * -diff / 100), true]);
+    const sum = $('summary'); sum.replaceChildren();
+    lines.forEach(([label, value, warn]) => {
+      const row = document.createElement('div');
+      if (warn) row.className = 'warn';
+      const a = document.createElement('span'); a.className = 'k'; a.textContent = label;
+      const b = document.createElement('span'); b.className = 'v'; b.textContent = value;
+      row.append(a, b);
+      sum.appendChild(row);
+    });
+
+    $('equalBtn').disabled = !coins.length;
+    $('normBtn').disabled = !coins.length || diff === 0;
+    $('copyBtn').disabled = !coins.length;
+
+    write('dcaCoins', coins);
+    write('dcaSettings', settings);
+  }
+
+  const rebuild = () => { buildRows(); update(); };
+
+  // ---------- Розподіл часток ----------
+  function equalShares() {
+    const n = coins.length; if (!n) return;
+    const each = Math.floor(10000 / n) / 100;
+    coins.forEach(c => c.share = each);
+    coins[0].share = r2(coins[0].share + (100 - each * n));
+  }
+  function normalizeShares() {
+    const total = coins.reduce((s, c) => s + c.share, 0);
+    if (total <= 0) return equalShares();
+    coins.forEach(c => c.share = r2(c.share * 100 / total));
+    const rest = r2(100 - coins.reduce((s, c) => s + c.share, 0));
+    let big = 0; coins.forEach((c, i) => { if (c.share > coins[big].share) big = i; });
+    coins[big].share = r2(coins[big].share + rest);
+  }
+
+  // ---------- Копіювання ----------
+  function buildText() {
+    const k = calc();
+    const out = [`Інвестиція: $${fmt(k.amt)}` + (k.fee > 0 ? `, комісія ${fmt(k.fee)}%` : '') + (k.parts > 1 ? `, покупок: ${k.parts}` : '')];
+    coins.forEach((c, i) => {
+      const r = k.rows[i];
+      let line = `${i + 1}. ${c.name || '—'}: $${fmt(r.usd)} (${fmt(c.share)}%) → ${fmtQ(r.qty)} за ціною $${fmt(c.price)}`;
+      if (k.parts > 1) line += `; за 1 покупку $${fmt(r.usd / k.parts)} → ${fmtQ(r.qty / k.parts)}`;
+      out.push(line);
+    });
+    out.push(`Разом: $${fmt(k.usdSum)}` + (k.fee > 0 ? `, комісія $${fmt(k.feeSum)}` : ''));
+    return out.join('\n');
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    ta.remove(); return ok;
+  }
+  let statusTimer;
+  function say(msg) {
+    $('status').textContent = msg;
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => $('status').textContent = '', 2500);
+  }
+
+  // ---------- Події ----------
+  const bindSetting = (id, key) => $(id).addEventListener('input', e => { settings[key] = num(e.target.value); update(); });
+  bindSetting('amount', 'amount'); bindSetting('fee', 'fee'); bindSetting('parts', 'parts');
+
+  $('addBtn').addEventListener('click', () => {
+    coins.push({ name: 'NEW', price: 1, share: 0 });
+    rebuild();
+    const inp = $('tbody').lastElementChild.querySelector('[data-f="name"]');
+    inp.focus(); inp.select();
+    inp.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+  $('equalBtn').addEventListener('click', () => { equalShares(); rebuild(); say('Частки розподілено порівну'); });
+  $('normBtn').addEventListener('click', () => { normalizeShares(); rebuild(); say('Частки вирівняно до 100%'); });
+  $('copyBtn').addEventListener('click', async () => say(await copyText(buildText()) ? 'Результат скопійовано' : 'Не вдалося скопіювати'));
+
+  let resetTimer;
+  $('resetBtn').addEventListener('click', e => {
+    const btn = e.currentTarget;
+    if (!btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = 'Скинути все? Натисни ще раз';
+      resetTimer = setTimeout(() => { btn.classList.remove('armed'); btn.textContent = 'Скинути'; }, 3000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    btn.classList.remove('armed'); btn.textContent = 'Скинути';
+    coins = DEFAULT_COINS.map(clean);
+    settings = Object.assign({}, DEFAULT_SETTINGS);
+    syncSettings(); rebuild(); say('Початкові значення відновлено');
+  });
+
+  $('tbody').addEventListener('input', e => {
+    const f = e.target.dataset.f; if (!f) return;
+    const tr = e.target.closest('tr'); const i = +tr.dataset.i;
+    if (f === 'name') coins[i].name = e.target.value;
+    else if (f === 'share') coins[i].share = Math.min(100, num(e.target.value));
+    else { coins[i].price = num(e.target.value); delete liveStatus[symOf(coins[i])]; }
+    update();
+  });
+  $('tbody').addEventListener('click', e => {
+    const btn = e.target.closest('[data-act]'); if (!btn) return;
+    const i = +btn.closest('tr').dataset.i;
+    const act = btn.dataset.act;
+    if (act === 'del') coins.splice(i, 1);
+    if (act === 'up' && i > 0) [coins[i - 1], coins[i]] = [coins[i], coins[i - 1]];
+    if (act === 'down' && i < coins.length - 1) [coins[i + 1], coins[i]] = [coins[i], coins[i + 1]];
+    rebuild();
+  });
+
+  // ---------- Живі ціни (Coinbase, публічний API без ключа) ----------
+  let lastFetch = 0, fetching = false;
+  async function getPrice(sym) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 8000);
+    try {
+      const res = await fetch('https://api.coinbase.com/v2/prices/' + sym + '-USD/spot', { signal: ctl.signal });
+      if (res.status === 404 || res.status === 400) return null; // такої монети немає
+      if (!res.ok) return undefined;
+      const j = await res.json();
+      const p = parseFloat(j && j.data && j.data.amount);
+      return Number.isFinite(p) && p > 0 ? p : null;
+    } catch (e) { return undefined; } finally { clearTimeout(t); }
+  }
+  async function refreshPrices() {
+    if (fetching) return;
+    const syms = [...new Set(coins.map(symOf).filter(Boolean))];
+    if (!syms.length) return;
+    fetching = true;
+    const btn = $('priceBtn'); btn.disabled = true; btn.textContent = 'Оновлюю…';
+    const found = await Promise.all(syms.map(async s => [s, await getPrice(s)]));
+    const map = new Map(found);
+    const offline = found.every(([, p]) => p === undefined);
+    const stamp = $('stamp');
+    if (offline) {
+      stamp.textContent = 'Не вдалося отримати ціни. Перевір інтернет, ціни лишились попередні.';
+      stamp.className = 'stamp bad';
+    } else {
+      found.forEach(([s, p]) => { if (p) liveStatus[s] = 'ok'; else if (p === null) liveStatus[s] = 'fail'; });
+      coins.forEach(c => { const p = map.get(symOf(c)); if (p) c.price = p; });
+      [...$('tbody').children].forEach((tr, i) => {
+        const inp = tr.querySelector('[data-f="price"]');
+        if (inp && coins[i] && document.activeElement !== inp) inp.value = coins[i].price;
+      });
+      const missing = found.filter(([, p]) => p === null).map(([s]) => s);
+      const time = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+      stamp.textContent = 'Ціни оновлено о ' + time + (missing.length ? '. Не знайдено: ' + missing.join(', ') : '');
+      stamp.className = 'stamp';
+      lastFetch = Date.now();
+    }
+    fetching = false;
+    btn.disabled = false; btn.textContent = 'Оновити ціни';
+    update();
+  }
+  $('priceBtn').addEventListener('click', refreshPrices);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && Date.now() - lastFetch > 5 * 60 * 1000) refreshPrices();
+  });
+
+  function syncSettings() {
+    $('amount').value = settings.amount;
+    $('fee').value = settings.fee;
+    $('parts').value = settings.parts;
+  }
+  syncSettings();
+  rebuild();
+  refreshPrices();
+</script>
+</body>
+</html>
